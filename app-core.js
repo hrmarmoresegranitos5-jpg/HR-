@@ -1284,7 +1284,7 @@ function calcular(){
   var end=document.getElementById('oEnd').value.trim()||'';
   var obs=document.getElementById('oObs').value.trim()||'';
   if(!ambientes.length){toast('Adicione pelo menos um ambiente');return;}
-  var missingMat=ambientes.find(function(a){return !a.selMat;});
+  var missingMat=ambientes.find(function(a){return !a.selMat && a.tipo!=='Túmulo';});
   if(missingMat){toast('Selecione a pedra de todos os ambientes');renderAmbientes();return;}
   var mat=CFG.stones.find(function(s){return s.id===ambientes[0].selMat;})||CFG.stones[0];
 
