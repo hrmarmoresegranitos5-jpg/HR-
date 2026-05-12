@@ -1,0 +1,40 @@
+:root {
+  --gold: #c9a84c;
+  --gold2: #e8c96a;
+  --bg: #070709;
+  --s2: #141418;
+  --s3: #1a1a20;
+  --bd: #1e1e26;
+  --bd2: #28282f;
+  --tx: #f4efe8;
+  --t2: #bfb9b0;
+  --t3: #7a7570;
+  --t4: #4a4540;
+  --grn: #4cda80;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    Outfit,
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: var(--bg);
+  color: var(--tx);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}

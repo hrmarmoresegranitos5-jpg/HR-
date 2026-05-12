@@ -13,21 +13,36 @@ var TUM_DEF_CFG = {
   parcMax: 8,
   juros:   12,
   mob: {
-    pedreiro:   280,
-    ajudante:   160,
-    instalacao: 300,
-    montagem:   280,
-    transporte: 200
+    pedreiro:    280,   // R$/dia
+    ajudante:    160,   // R$/dia
+    instalacao:  300,   // R$/serviço
+    montagem:    280,   // R$/serviço
+    transporte:  200,   // R$ fixo base (deslocamento)
+    frete:        80,   // R$ extra por carga adicional (N≥2 gavetas)
+    horaExtra:    45,   // R$/hora extra
+    adicUrgencia: 150   // R$ adicional urgência
   },
   civil: {
-    cimento:   38,
-    areia:    120,
-    brita:    150,
-    argamassa: 28,
-    ferro38:   42,
-    ferro516:  28,
-    malha:     45,
-    blocos:   4.5
+    cimento:          38,    // R$/saco 50 kg
+    areia:           120,    // R$/m³
+    brita:           150,    // R$/m³
+    argamassa:        28,    // R$/saco 20 kg
+    ferro38:          42,    // R$/barra 12 m
+    ferro516:         28,    // R$/barra 12 m
+    malha:            45,    // R$/m²
+    blocos:          4.5,    // R$/unidade
+    tijolos:         1.2,    // R$/unidade
+    impermeabilizante: 55,   // R$/litro
+    colaEstr:         45,    // R$/kg
+    silicone:         25,    // R$/tubo
+    massaPlastica:    22,    // R$/kg
+    graute:           35,    // R$/saco 25 kg
+    concretoUsinado: 320     // R$/m³
+  },
+  fin: {
+    comissao:       5,   // %
+    taxaMaquininha: 3,   // %
+    impostos:       6    // %
   },
   pedras: [
     { id:'p_gabriel', nm:'Preto São Gabriel',  cat:'Popular', pr:180, peso:78 },
@@ -168,15 +183,20 @@ function _tumInitCfg() {
     if (typeof svCFG === 'function') svCFG();
     return;
   }
-  ['mob','civil'].forEach(function(k) {
+  // Sync all sub-object groups (mob, civil, fin)
+  ['mob', 'civil', 'fin'].forEach(function(k) {
     if (!CFG.tumCfg[k]) CFG.tumCfg[k] = JSON.parse(JSON.stringify(TUM_DEF_CFG[k]));
     Object.keys(TUM_DEF_CFG[k]).forEach(function(f) {
       if (CFG.tumCfg[k][f] === undefined) CFG.tumCfg[k][f] = TUM_DEF_CFG[k][f];
     });
   });
+  // Sync top-level scalar fields
+  ['margem', 'parcMax', 'juros'].forEach(function(f) {
+    if (CFG.tumCfg[f] === undefined || CFG.tumCfg[f] === null)
+      CFG.tumCfg[f] = TUM_DEF_CFG[f];
+  });
   if (!CFG.tumCfg.pedras || !CFG.tumCfg.pedras.length)
     CFG.tumCfg.pedras = JSON.parse(JSON.stringify(TUM_DEF_CFG.pedras));
-  if (!CFG.tumCfg.margem) CFG.tumCfg.margem = TUM_DEF_CFG.margem;
 }
 
 function _tumCfg() {
@@ -272,6 +292,8 @@ function _tumCalcFull() {
   var m2_parede     = 2 * ((C * A) + (L * A));
   var Perim_base    = 2 * (C + L);
   var cv            = cfg.civil;
+  // Helper: lê cv com fallback seguro (nunca NaN)
+  var _cv = function(k) { return +(cv[k] ?? TUM_DEF_CFG.civil[k]) || 0; };
 
   var sacos_cimento = Math.ceil(Vol_total * 6) + N;
   var m3_areia      = _r3(Vol_total * 0.7  + N * 0.05);
@@ -283,14 +305,14 @@ function _tumCalcFull() {
   var unid_blocos   = Math.ceil(m2_parede / 0.076) + N * 12;
 
   var custo_civil_base =
-    (sacos_cimento * cv.cimento)  +
-    (m3_areia      * cv.areia)    +
-    (m3_brita      * cv.brita)    +
-    (sacos_argam   * cv.argamassa)+
-    (barras_f38    * cv.ferro38)  +
-    (barras_f516   * cv.ferro516) +
-    (m2_malha      * cv.malha)    +
-    (unid_blocos   * cv.blocos);
+    (sacos_cimento * _cv('cimento'))   +
+    (m3_areia      * _cv('areia'))     +
+    (m3_brita      * _cv('brita'))     +
+    (sacos_argam   * _cv('argamassa')) +
+    (barras_f38    * _cv('ferro38'))   +
+    (barras_f516   * _cv('ferro516'))  +
+    (m2_malha      * _cv('malha'))     +
+    (unid_blocos   * _cv('blocos'));
 
   var custo_civil = q.opts.cemiterio
     ? _r2(custo_civil_base * (1 + q.fatorCem / 100))
@@ -307,11 +329,13 @@ function _tumCalcFull() {
   Dif = _r2(Dif);
 
   var mob          = cfg.mob;
-  var v_pedreiro   = _r2((2 + N)       * mob.pedreiro   * Dif);
-  var v_ajudante   = _r2((2 + N)       * mob.ajudante    * Dif);
-  var v_instalacao = _r2((1.5 + N*0.5) * mob.instalacao);
-  var v_montagem   = _r2((0.5 + N*0.25)* mob.montagem   * Dif);
-  var v_frete      = mob.transporte + (N >= 2 ? 80 : 0);
+  var _mob = function(k) { return +(mob[k] ?? TUM_DEF_CFG.mob[k]) || 0; };
+
+  var v_pedreiro   = _r2((2 + N)       * _mob('pedreiro')   * Dif);
+  var v_ajudante   = _r2((2 + N)       * _mob('ajudante')   * Dif);
+  var v_instalacao = _r2((1.5 + N*0.5) * _mob('instalacao'));
+  var v_montagem   = _r2((0.5 + N*0.25)* _mob('montagem')   * Dif);
+  var v_frete      = _r2(_mob('transporte') + (N >= 2 ? _mob('frete') : 0));
   var custo_mob    = _r2(v_pedreiro + v_ajudante + v_instalacao + v_montagem + v_frete);
 
   // ── 5. EXTRAS FIXOS ─────────────────────────────────────────────
@@ -328,16 +352,29 @@ function _tumCalcFull() {
 
   // ── 7. TOTAIS ────────────────────────────────────────────────────
   var tc         = _tumCfg();
-  var margem     = tc.margem  || 35;
-  var parcMax    = tc.parcMax || 8;
-  var juros      = tc.juros   || 12;
+  var margem     = +(tc.margem  ?? TUM_DEF_CFG.margem)  || 35;
+  var parcMax    = +(tc.parcMax ?? TUM_DEF_CFG.parcMax)  || 8;
+  var juros      = +(tc.juros   ?? TUM_DEF_CFG.juros)   || 12;
 
-  var custo_total = _r2(custo_pedra + custo_acabamento + custo_civil + custo_mob + custo_extras);
+  // Encargos financeiros (lidos de CFG.tumCfg.fin com fallback)
+  var fin           = tc.fin || TUM_DEF_CFG.fin;
+  var _fin = function(k) { return +(fin[k] ?? TUM_DEF_CFG.fin[k]) || 0; };
+  var pct_comissao  = _fin('comissao');
+  var pct_maquinha  = _fin('taxaMaquininha');
+  var pct_impostos  = _fin('impostos');
+  // Overhead total (%) a ser embutido no custo antes de aplicar margem
+  var pct_overhead  = pct_comissao + pct_impostos; // maquininha incide só no parcelado
+
+  var custo_total   = _r2(custo_pedra + custo_acabamento + custo_civil + custo_mob + custo_extras);
+  // Custo real incluindo overhead fiscal/comissão
+  var custo_com_enc = _r2(custo_total * (1 + pct_overhead / 100));
   // Fórmula correta: valor_final = custo / (1 - margem%)
-  var valor_vista = _r2(custo_total / (1 - margem / 100));
-  var valor_parc  = _r2(valor_vista * (1 + juros / 100));
-  var parc_mensal = _r2(valor_parc / parcMax);
-  var lucro       = _r2(valor_vista - custo_total);
+  var valor_vista   = _r2(custo_com_enc / (1 - margem / 100));
+  // Parcelado: juros + taxa maquininha embutidos
+  var taxa_parc     = juros + pct_maquinha;
+  var valor_parc    = _r2(valor_vista * (1 + taxa_parc / 100));
+  var parc_mensal   = _r2(valor_parc / parcMax);
+  var lucro         = _r2(valor_vista - custo_total);
 
   // ── 8. VERIFICAÇÃO DE GAVETA (viabilidade) ───────────────────────
   var C_int_cm = q.C - 30;   // 15cm parede de cada lado
@@ -372,9 +409,12 @@ function _tumCalcFull() {
     v_instalacao:v_instalacao, v_montagem:v_montagem, v_frete:v_frete, Dif:Dif,
     // Totais
     custo_total:custo_total,
+    custo_com_enc:custo_com_enc,
     valor_vista:valor_vista, valor_parc:valor_parc,
     parc_mensal:parc_mensal, lucro:lucro,
     margem:margem, parcMax:parcMax, juros:juros,
+    pct_comissao:pct_comissao, pct_maquinha:pct_maquinha,
+    pct_impostos:pct_impostos, pct_overhead:pct_overhead,
     // Prazo
     prazo_total:prazo_total,
     // Aliases compatibilidade com DB
@@ -1048,56 +1088,90 @@ function _tumBuildCfgUI() {
   var tc  = _tumCfg();
   var F   = function(f, id, val, label) {
     return '<div class="cfg-row"><div class="cfg-k">'+label+'</div>' +
-      '<input class="cfg-inp" type="number" step="any" value="'+val+'" ' +
-      'oninput="CFG.tumCfg.'+f+'[\''+id+'\']=+this.value;svCFG()"></div>';
+      '<input class="cfg-inp" type="number" step="any" value="'+(+(val)||0)+'" ' +
+      'oninput="CFG.tumCfg.'+f+'[\''+id+'\']=+this.value||0;svCFG()"></div>';
   };
   var h = '';
 
-  // Margem e parcelamento
+  // ── Margem e parcelamento ──────────────────────────────────────
   h += '<div class="tum-cfg-sec">💰 Preços e Margens</div>';
   h += '<div class="cfg-row"><div class="cfg-k">Margem de lucro (%)</div>' +
-    '<input class="cfg-inp" type="number" min="0" max="200" value="'+tc.margem+'" ' +
-    'oninput="CFG.tumCfg.margem=+this.value;svCFG()"></div>';
+    '<input class="cfg-inp" type="number" min="0" max="200" value="'+(tc.margem||35)+'" ' +
+    'oninput="CFG.tumCfg.margem=+this.value||0;svCFG()"></div>';
   h += '<div class="cfg-row"><div class="cfg-k">Parcelas máx. (cartão)</div>' +
-    '<input class="cfg-inp" type="number" min="1" max="18" value="'+tc.parcMax+'" ' +
-    'oninput="CFG.tumCfg.parcMax=+this.value;svCFG()"></div>';
+    '<input class="cfg-inp" type="number" min="1" max="18" value="'+(tc.parcMax||8)+'" ' +
+    'oninput="CFG.tumCfg.parcMax=+this.value||1;svCFG()"></div>';
   h += '<div class="cfg-row"><div class="cfg-k">Juros parcelado (%)</div>' +
-    '<input class="cfg-inp" type="number" min="0" max="50" step="0.5" value="'+tc.juros+'" ' +
-    'oninput="CFG.tumCfg.juros=+this.value;svCFG()"></div>';
+    '<input class="cfg-inp" type="number" min="0" max="50" step="0.5" value="'+(tc.juros||12)+'" ' +
+    'oninput="CFG.tumCfg.juros=+this.value||0;svCFG()"></div>';
 
-  // Pedras
+  // ── Encargos Financeiros ───────────────────────────────────────
+  var fin = tc.fin || TUM_DEF_CFG.fin;
+  h += '<div class="tum-cfg-sec" style="margin-top:16px">📊 Encargos Financeiros</div>';
+  var finLabels = {
+    comissao:       'Comissão vendedor (%)',
+    taxaMaquininha: 'Taxa maquininha (%)',
+    impostos:       'Impostos / DAS (%)'
+  };
+  Object.keys(finLabels).forEach(function(k) {
+    h += '<div class="cfg-row"><div class="cfg-k">'+finLabels[k]+'</div>' +
+      '<input class="cfg-inp" type="number" min="0" max="50" step="0.1" value="'+(+(fin[k])||0)+'" ' +
+      'oninput="if(!CFG.tumCfg.fin)CFG.tumCfg.fin={};CFG.tumCfg.fin[\''+k+'\']=+this.value||0;svCFG()"></div>';
+  });
+
+  // ── Pedras ─────────────────────────────────────────────────────
   h += '<div class="tum-cfg-sec" style="margin-top:16px">🪨 Pedras — Preço por m² (3cm)</div>';
   tc.pedras.forEach(function(p, i) {
     h += '<div class="cfg-row">' +
       '<div class="cfg-k">'+p.nm+' <span style="font-size:.6rem;color:var(--t4)">'+p.cat+'</span></div>' +
       '<div style="display:flex;gap:6px;align-items:center">' +
       '<input class="cfg-inp" type="number" min="0" value="'+p.pr+'" style="width:80px" ' +
-      'oninput="CFG.tumCfg.pedras['+i+'].pr=+this.value;svCFG()">' +
+      'oninput="CFG.tumCfg.pedras['+i+'].pr=+this.value||0;svCFG()">' +
       '<button onclick="tumCfgRemPedra('+i+')" style="background:rgba(192,90,74,.15);border:1px solid rgba(192,90,74,.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.7rem">✕</button>' +
       '</div></div>';
   });
   h += '<button onclick="tumCfgAddPedra()" style="width:100%;padding:8px;margin-top:6px;background:var(--bg3);border:1px dashed var(--bd2);border-radius:8px;color:var(--t3);cursor:pointer;font-size:.72rem">+ Adicionar pedra</button>';
 
-  // MO
-  h += '<div class="tum-cfg-sec" style="margin-top:16px">🔨 Mão de Obra (R$/dia ou fixo)</div>';
-  ['pedreiro','ajudante','instalacao','montagem','transporte'].forEach(function(k) {
-    var labels = {pedreiro:'Pedreiro (R$/dia)',ajudante:'Ajudante (R$/dia)',
-                  instalacao:'Instalação pedra (R$/dia)',montagem:'Montagem (R$/dia)',transporte:'Transporte (R$ fixo)'};
-    h += F('mob', k, tc.mob[k], labels[k]);
+  // ── Mão de Obra ────────────────────────────────────────────────
+  h += '<div class="tum-cfg-sec" style="margin-top:16px">🔨 Mão de Obra</div>';
+  var mobLabels = {
+    pedreiro:    'Pedreiro (R$/dia)',
+    ajudante:    'Ajudante (R$/dia)',
+    instalacao:  'Instalação pedra (R$/serviço)',
+    montagem:    'Montagem (R$/serviço)',
+    transporte:  'Transporte — base (R$ fixo)',
+    frete:       'Frete extra ≥ 2 gavetas (R$)',
+    horaExtra:   'Hora extra (R$/h)',
+    adicUrgencia:'Adicional urgência (R$)'
+  };
+  Object.keys(mobLabels).forEach(function(k) {
+    h += F('mob', k, tc.mob[k], mobLabels[k]);
   });
 
-  // Materiais civis
+  // ── Materiais Civis ────────────────────────────────────────────
   h += '<div class="tum-cfg-sec" style="margin-top:16px">🧱 Materiais Civis</div>';
   var civLabels = {
-    cimento:'Cimento CP-II (saco 50kg)', areia:'Areia média (m³)', brita:'Brita 1 (m³)',
-    argamassa:'Argamassa AC-II (saco 20kg)', ferro38:'Ferro 3/8\" (barra 12m)',
-    ferro516:'Ferro 5/16\" (barra 12m)', malha:'Malha Q-92 (m²)', blocos:'Blocos 14×19×39 (un.)'
+    cimento:           'Cimento CP-II (saco 50 kg)',
+    areia:             'Areia média (m³)',
+    brita:             'Brita 1 (m³)',
+    argamassa:         'Argamassa AC-II (saco 20 kg)',
+    ferro38:           'Ferro 3/8\" (barra 12 m)',
+    ferro516:          'Ferro 5/16\" (barra 12 m)',
+    malha:             'Malha Q-92 (m²)',
+    blocos:            'Blocos 14×19×39 (un.)',
+    tijolos:           'Tijolos 9×19×39 (un.)',
+    impermeabilizante: 'Impermeabilizante (litro)',
+    colaEstr:          'Cola estrutural / epóxi (kg)',
+    silicone:          'Silicone neutro (tubo)',
+    massaPlastica:     'Massa plástica (kg)',
+    graute:            'Graute (saco 25 kg)',
+    concretoUsinado:   'Concreto usinado fck 20 (m³)'
   };
   Object.keys(civLabels).forEach(function(k) {
     h += F('civil', k, tc.civil[k], civLabels[k]);
   });
 
-  // Reset
+  // ── Reset ──────────────────────────────────────────────────────
   h += '<button onclick="tumCfgReset()" style="width:100%;padding:10px;margin-top:14px;background:var(--bg3);border:1px solid var(--bd2);border-radius:8px;color:var(--t3);cursor:pointer;font-size:.72rem">↺ Restaurar padrões</button>';
   return h;
 }
