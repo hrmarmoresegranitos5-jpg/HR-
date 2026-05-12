@@ -1047,7 +1047,26 @@ function renderAmbientes(){
       h+='<div style="font-size:.57rem;color:var(--t4);margin-top:8px;line-height:1.5;">💡 <b>Comprimento</b> = lado da piscina em cm &nbsp;·&nbsp; <b>Largura</b> = largura da borda em cm</div>';
       h+='</div>';
     }
-    // STEP 2: Selecao de Pedra
+    // ── TÚMULO: calculadora exclusiva — pedra/peças/serviços ficam no módulo TUM ──
+    if(amb.tipo==='Túmulo'){
+      var te2=amb.tumExtra||{};
+      // Botão para abrir a calculadora completa (pg9)
+      h+='<button onclick="navPg(9)" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold3));border:none;border-radius:12px;font-family:Outfit,sans-serif;font-size:.82rem;font-weight:800;color:#0c0b08;cursor:pointer;letter-spacing:.2px;margin:10px 0;">🧮 Abrir Calculadora de Túmulo</button>';
+      // Resumo do cálculo (quando existir)
+      if(te2.calc_ok){
+        h+='<div style="background:linear-gradient(135deg,rgba(40,180,100,.08),rgba(40,180,100,.04));border:1px solid rgba(40,180,100,.25);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:6px;">';
+        h+='<div style="width:32px;height:32px;background:rgba(40,180,100,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.9rem;">✅</div>';
+        h+='<div>';
+        h+='<div style="font-size:.75rem;font-weight:700;color:#4dc87a;">Túmulo calculado</div>';
+        if(te2.subtipo) h+='<div style="font-size:.62rem;color:var(--t3);margin-top:1px;">'+te2.subtipo+'</div>';
+        if(te2.m2_total) h+='<div style="font-size:.62rem;color:var(--t4);margin-top:2px;">'+te2.m2_total+'m² &nbsp;·&nbsp; '+te2.peso_kg+'kg &nbsp;·&nbsp; '+te2.prazo_dias+' dias</div>';
+        if(te2.venda) h+='<div style="font-size:.78rem;font-weight:800;color:var(--gold2);margin-top:3px;">R$ '+(+te2.venda).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>';
+        h+='</div>';
+        h+='</div>';
+      }
+      h+='</div></div>';
+    } else {
+    // STEP 2: Selecao de Pedra — apenas para ambientes não-Túmulo
     h+='<div style="margin:10px 0 12px;">';
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">';
     h+='<span style="font-size:.52rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:600;">② Pedra</span>';
@@ -1101,6 +1120,7 @@ function renderAmbientes(){
     h+='<div style="font-size:.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:7px;">Serviços</div>';
     h+=buildSVHtml(amb);
     h+='</div></div>';
+    } // fim else (não-Túmulo)
   });
   container.innerHTML=h;
   }catch(e2){console.error('renderAmbientes:',e2);toast('Erro: '+e2.message);}
