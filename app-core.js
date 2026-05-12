@@ -1051,7 +1051,7 @@ function renderAmbientes(){
     if(amb.tipo==='Túmulo'){
       var te2=amb.tumExtra||{};
       // Botão para abrir a calculadora completa (pg9)
-      h+='<button onclick="navPg(9)" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold3));border:none;border-radius:12px;font-family:Outfit,sans-serif;font-size:.82rem;font-weight:800;color:#0c0b08;cursor:pointer;letter-spacing:.2px;margin:10px 0;">🧮 Abrir Calculadora de Túmulo</button>';
+      h+='<button onclick="go(9)" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold3));border:none;border-radius:12px;font-family:Outfit,sans-serif;font-size:.82rem;font-weight:800;color:#0c0b08;cursor:pointer;letter-spacing:.2px;margin:10px 0;">🧮 Abrir Calculadora de Túmulo</button>';
       // Resumo do cálculo (quando existir)
       if(te2.calc_ok){
         h+='<div style="background:linear-gradient(135deg,rgba(40,180,100,.08),rgba(40,180,100,.04));border:1px solid rgba(40,180,100,.25);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:6px;">';
